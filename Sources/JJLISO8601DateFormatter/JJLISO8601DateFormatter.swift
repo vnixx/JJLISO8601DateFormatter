@@ -249,7 +249,23 @@ public final class JJLISO8601DateFormatter: Formatter {
         timeZone: TimeZone
     ) -> String {
         let time = date.timeIntervalSince1970
-        let offset: Double = cTimeZone != nil ? 0 : Double(timeZone.secondsFromGMT(for: date))
+        var offset: Double = cTimeZone != nil ? 0 : Double(timeZone.secondsFromGMT(for: date))
+
+        // Apple rounds GMT-prefixed timezones to the nearest minute
+        if cTimeZone == nil && timeZone.identifier.hasPrefix("GMT") {
+            let offsetSeconds = Int(offset)
+            let remainder = offsetSeconds % 60
+            if remainder != 0 {
+                // Round to nearest minute
+                if remainder >= 30 {
+                    offset = Double(offsetSeconds + (60 - remainder))
+                } else if remainder <= -30 {
+                    offset = Double(offsetSeconds - (60 + remainder))
+                } else {
+                    offset = Double(offsetSeconds - remainder)
+                }
+            }
+        }
 
         return withUnsafeTemporaryAllocation(of: CChar.self, capacity: Int(kJJLMaxDateLength)) { buffer in
             buffer.initialize(repeating: 0)
